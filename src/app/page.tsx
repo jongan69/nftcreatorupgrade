@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Connection } from "@solana/web3.js";
+// import { Connection } from "@solana/web3.js";
 import {
   Preloader,
   Mouse,
@@ -19,19 +19,12 @@ import {
   Discover,
 } from "@/components";
 
-const HELIUS_RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`;
+// const HELIUS_RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`;
 
 export default function Home() {
   const {
-    connect,
-    disconnect,
-    connecting,
     publicKey,
-    wallet,
-    wallets,
-    select,
   } = useWallet();
-  const connection = new Connection(HELIUS_RPC_URL);
 
   const [nfts, setNfts] = useState([]);
 

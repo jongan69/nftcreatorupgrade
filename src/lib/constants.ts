@@ -1,23 +1,24 @@
 import axios from "axios";
 import toast from "react-hot-toast";
+import { NFTData, NFTAttributes } from "./types";
 
 //PINATE API - SECRECT KEYS
 const PINATA_AIP_KEY = process.env.NEXT_PUBLIC_PINATA_AIP_KEY;
 const PINATA_SECRECT_KEY = process.env.NEXT_PUBLIC_PINATA_SECRECT_KEY;
 
-const notifySuccess = (msg) => toast.success(msg, { duration: 2000 });
-const notifyError = (msg) => toast.error(msg, { duration: 2000 });
+const notifySuccess = (msg: string) => toast.success(msg, { duration: 2000 });
+const notifyError = (msg: string) => toast.error(msg, { duration: 2000 });
 
-export const copyText = (text) => {
+export const copyText = (text: string) => {
   navigator.clipboard.writeText(text);
   notifySuccess("Text copied successfully");
 };
 
-export const SHORTEN_ADDRESS = (address) =>
+export const SHORTEN_ADDRESS = (address: string) =>
   `${address?.slice(0, 4)}...${address?.slice(address.length - 4)}`;
 
 //--IMAGE UPLOAD
-export const UPLOAD_IPFS_IMAGE = async (file) => {
+export const UPLOAD_IPFS_IMAGE = async (file: File) => {
   try {
     if (file) {
       const formData = new FormData();
@@ -46,7 +47,7 @@ export const UPLOAD_IPFS_IMAGE = async (file) => {
 };
 
 //--METADAT UPLOAD
-export const UPLOAD_METADATA = async (nft, attributes, address) => {
+export const UPLOAD_METADATA = async (nft: NFTData, attributes: NFTAttributes, address: string) => {
   try {
     const { name, symbol, description, image, link } = nft;
     const { traitTypeOne, valueOne, traitTypeTwo, valueTwo } = attributes;
@@ -127,7 +128,7 @@ export const UPLOAD_METADATA = async (nft, attributes, address) => {
 
     const localNFTs = localStorage.getItem("SOLANA_NFTS");
     if (localNFTs) {
-      local_SOLANA_NFTS = JSON.parse(localStorage.getItem("SOLANA_NFTS"));
+      local_SOLANA_NFTS = JSON.parse(localNFTs);
       local_SOLANA_NFTS.push(SOLANA_NFTS);
       localStorage.setItem("SOLANA_NFTS", JSON.stringify(local_SOLANA_NFTS));
       notifySuccess("Uploaded successfully");

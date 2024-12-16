@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import {
   Connection,
   PublicKey,
-  SystemProgram,
-  Transaction,
-  Signer
+  Transaction
 } from "@solana/web3.js";
 import { 
   TOKEN_PROGRAM_ID,
@@ -17,6 +15,8 @@ import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction
 } from "@solana/spl-token";
+import Image from 'next/image';
+import Link from 'next/link';
 
 import { UPLOAD_IPFS_IMAGE } from "@/lib/constants";
 
@@ -31,41 +31,35 @@ import {
   SideBar_6,
   FaExternalLinkAlt,
 } from "@/components/SVG";
+import { ErrorResponse, NFTAttributes, NFTData } from "@/lib/types";
 
-const SHYFT_AIP = process.env.NEXT_PUBLIC_SHYFT_AIP_KEY;
 const NETWORK = process.env.NEXT_PUBLIC_NETWORK;
 const ADMIN_ADDRESS = process.env.NEXT_PUBLIC_ADMIN || "";
-const NFT_FEE = process.env.NEXT_PUBLIC_FEE || "0";
 const HELIUS_RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`;
 const TOKEN_MINT = new PublicKey("8Ki8DpuWNxu9VsS3kQbarsCWMcFGWkzzA8pUPto9zBd5");
 const TOKEN_AMOUNT = 10 * (10 ** 9); // Assuming 9 decimals, adjust if different
-const ADMIN_TOKEN_ACCOUNT = new PublicKey(ADMIN_ADDRESS); // The admin's token account to receive payment
+const ADMIN_TOKEN_ACCOUNT = new PublicKey(ADMIN_ADDRESS);
 
 // Add validation
 if (!process.env.NEXT_PUBLIC_ADMIN) {
   throw new Error("NEXT_PUBLIC_ADMIN environment variable is not set");
 }
 
-const create = () => {
+const Create = () => {
   const { connection } = useConnection();
   const [loader, setLoader] = useState(false);
-  const [balance, setBalance] = useState<number | null>(null);
   const [allowCreate, setAllowCreate] = useState(false);
   const {
     sendTransaction,
     connected,
-    connect,
-    disconnect,
-    connecting,
     publicKey,
-    wallet,
-    wallets,
-    select,
   } = useWallet();
 
-  const connectionCustom = new Connection(HELIUS_RPC_URL);
+  const connectionCustom = useMemo(() => 
+    new Connection(HELIUS_RPC_URL),
+    []
+  );
 
-  console.log(SHYFT_AIP)
   console.log("Network:", NETWORK);
   console.log("Network URL:", HELIUS_RPC_URL);
 
@@ -126,7 +120,7 @@ const create = () => {
     }
   };
 
-  const CREATE_NFT = async (nft: { name: any; description: any; symbol: any; image: any; link: any; }, attributes: { traitTypeOne: any; valueOne: any; traitTypeTwo: any; valueTwo: any; }) => {
+  const CREATE_NFT = async (nft: NFTData, attributes: NFTAttributes) => {
     if (!publicKey) {
       console.error("Wallet not connected");
       return;
@@ -250,13 +244,14 @@ const create = () => {
         throw new Error("Minting failed - unexpected response format");
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as ErrorResponse;
       console.error("Error in NFT creation:", {
-        error: error,
-        message: error.message,
-        response: error.response?.data
+        error: err,
+        message: err.message,
+        response: err.response?.data
       });
-      notifyError(error.message || "Error creating NFT");
+      notifyError(err.message || "Error creating NFT");
       setLoader(false);
     }
   };
@@ -281,81 +276,18 @@ const create = () => {
     const fetchBalance = async () => {
       if (publicKey) {
         try {
-          console.log("Fetching balance for public key:", publicKey.toString());
-          console.log("Using connection endpoint:", connectionCustom.rpcEndpoint);
-
-          const balance = await connectionCustom.getBalance(
-            new PublicKey(publicKey)
-          );
-
-          console.log("Raw balance received:", balance);
-          setBalance(balance / 1e9);
+          const balance = await connectionCustom.getBalance(publicKey);
           const checkBal = balance / 1e9;
-
-          console.log("Converted balance (SOL):", checkBal);
-          if (checkBal > 0) {
-            setAllowCreate(true);
-          }
-        } catch (error: any) {
+          setAllowCreate(checkBal > 0);
+        } catch (error: unknown) {
           console.error("Error fetching balance:", error);
-          console.error("Error details:", {
-            message: error.message,
-            response: error.response,
-            stack: error.stack
-          });
-          setBalance(null);
         }
-      } else {
-        console.log("No public key available");
       }
     };
 
     fetchBalance();
-  }, [connected, publicKey, connection]);
+  }, [connected, publicKey, connectionCustom]);
 
-  const CHARGE_FEE = async () => {
-    if (!publicKey) {
-      console.error("Wallet not connected for fee charge");
-      notifyError("Wallet not connected");
-      return;
-    }
-
-    console.log("Initiating fee charge:", {
-      from: publicKey.toString(),
-      to: ADMIN_ADDRESS,
-      amount: NFT_FEE
-    });
-
-    try {
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: new PublicKey(ADMIN_ADDRESS),
-          lamports: Number(NFT_FEE) * 1e9,
-        })
-      );
-
-      console.log("Transaction created:", transaction);
-      const signature = await sendTransaction(transaction, connection);
-      console.log("Transaction signature:", signature);
-
-      const latestBlockHash = await connection.getLatestBlockhash();
-      const confirmation = await connection.confirmTransaction({
-        signature,
-        blockhash: latestBlockHash.blockhash,
-        lastValidBlockHeight: latestBlockHash.lastValidBlockHeight
-      });
-      console.log("Transaction confirmation:", confirmation);
-      return confirmation;
-    } catch (error: any) {
-      console.error("Detailed fee charge error:", {
-        error: error,
-        message: error.message,
-        stack: error.stack
-      });
-      notifyError("Error sending SOL:");
-    }
-  };
 
   return (
     <>
@@ -367,9 +299,11 @@ const create = () => {
               <div className="admin_active" id="header_admin">
                 <div className="popup-user relative">
                   <div className="user">
-                    <img
-                      src="assets/images/avatar/avatar-small-09.png"
-                      alt=""
+                    <Image
+                      src="/assets/images/avatar/avatar-small-09.png"
+                      alt="Avatar"
+                      width={60}
+                      height={60}
                     />
                     <span>@theblockchaincoders</span>
                   </div>
@@ -379,23 +313,24 @@ const create = () => {
           </div>
           <div className="btn-canvas active">
             <div className="canvas">
-              <a href="/">
+              <Link href="/">
                 <span />
-              </a>
+              </Link>
             </div>
           </div>
           <div className="flat-tabs">
             <div className="section-menu-left">
               <div className="box-logo">
-                <a href="/">
-                  <img
+                <Link href="/">
+                  <Image
                     src="logo-br.png"
+                    alt="Logo"
                     style={{
                       width: "60px",
                       height: "auto",
                     }}
                   />
-                </a>
+                </Link>
               </div>
               <div className="create menu-tab">
                 <a
@@ -410,25 +345,25 @@ const create = () => {
                   <h6>Menu</h6>
                   <ul className="menu-tab">
                     <li className="">
-                      <a href="/">
+                      <Link href="/">
                         <SideBar_1 />
                         <SideBar_2 />
                         Home
-                      </a>
+                      </Link>
                     </li>
                     <li className="">
-                      <a href="/">
+                      <Link href="/">
                         <SideBar_3 />
                         <SideBar_4 />
                         Created
-                      </a>
+                      </Link>
                     </li>
                     <li className="">
-                      <a href="/">
+                      <Link href="/">
                         <SideBar_5 />
                         <SideBar_6 />
                         Explore
-                      </a>
+                      </Link>
                     </li>
                   </ul>
                 </div>
@@ -451,9 +386,11 @@ const create = () => {
                           <div className="h-full">
                             <label className="uploadfile h-full flex items-center justify-center">
                               <div className="text-center">
-                                <img
+                                <Image
                                   src="assets/images/box-icon/upload.png"
                                   alt=""
+                                  width={60}
+                                  height={60}
                                 />
                                 <h5>Upload file</h5>
                                 <p className="text">
@@ -550,36 +487,44 @@ const create = () => {
                               <label>Blockchain</label>
                               <div className="widget-coins flex gap30 flex-wrap">
                                 <div className="widget-coins-item flex items-center">
-                                  <img
+                                  <Image
                                     src="assets/images/box-icon/coin-01.png"
                                     alt=""
+                                    width={60}
+                                    height={60}
                                   />
                                   <p>
                                     <a href="#">Bitcoin</a>
                                   </p>
                                 </div>
                                 <div className="widget-coins-item flex items-center">
-                                  <img
+                                  <Image
                                     src="assets/images/box-icon/coin-02.png"
                                     alt=""
+                                    width={60}
+                                    height={60}
                                   />
                                   <p>
                                     <a href="#">Ethereum</a>
                                   </p>
                                 </div>
                                 <div className="widget-coins-item flex items-center">
-                                  <img
+                                  <Image
                                     src="assets/images/box-icon/coin-03.png"
                                     alt=""
+                                    width={60}
+                                    height={60}
                                   />
                                   <p>
                                     <a href="#">Cardano</a>
                                   </p>
                                 </div>
                                 <div className="widget-coins-item flex items-center">
-                                  <img
+                                  <Image
                                     src="assets/images/box-icon/coin-04.png"
                                     alt=""
+                                    width={60}
+                                    height={60}
                                   />
                                   <p>
                                     <a href="#">Solana</a>
@@ -705,4 +650,4 @@ const create = () => {
   );
 };
 
-export default create;
+export default Create;
